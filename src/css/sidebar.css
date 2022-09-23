@@ -1,0 +1,72 @@
+.sidebar {
+    height: 100vh;
+    min-width: 230px;
+    padding-left: 10px;
+    padding-right: 10px;
+    flex: 0.2;
+    color: white;
+    background-color: #040404;
+}
+
+.sidebar__logo {
+    margin-right: auto;
+    height: 20%;
+    width: 100%;
+    padding: 10px;
+}
+.sidebar > hr {
+    border: 1px solid #282828;
+    width: 90%;
+    margin: 10px auto;
+}
+
+.sidebar > .sidebar__title , p {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-left: 10px;
+    padding: 5px;
+    padding-bottom: 0px;
+    margin-bottom: 0;
+    font-size: 12px;
+}
+
+.sidebarOption {
+    display: flex;
+    align-items: center;
+    color: grey;
+    height: 40px;
+    cursor: pointer;
+    transition: 200ms color ease-in;
+}
+
+
+.sidebarOption:hover,
+.sidebarOption > a:hover {
+    color: white;
+}
+
+.sidebarOption__icon {
+    margin: 10px;
+}
+
+.sidebarOption > a {
+    text-decoration: none;
+    margin-top: 4px;
+    margin-left: 20px;
+    color: grey;
+    font-size: 14px;
+}
+
+
+/* INPUT */
+.input__content {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: white;
+}
+.icon__send__playlist {
+    cursor: pointer;
+}
+
