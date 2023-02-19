@@ -1,12 +1,11 @@
 import {createStore, combineReducers, applyMiddleware} from 'redux';
 import thunk from 'redux-thunk';
 
-import { authReducer } from './authReducer';
-import { audioReducer } from './playerReducer';
+
 import { promiseReducer } from './promiseReducer';
+import cardReducer from './cardReducer'
 
 export const store = createStore(combineReducers({
     promise: promiseReducer,
-    authReducer: authReducer,
-    playerReducer: audioReducer, 
+    cardReducer: cardReducer
 }),applyMiddleware(thunk))

@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useEffect } from "react";
-import {promiseReducer , jwtDecode , backendURL , gql } from "../store/promiseReducer"
+import {promiseReducer , getData, pushData } from "../store/promiseReducer"
 import { store } from "../store/store"
-import { authReducer } from "../store/authReducer"
 import { connect } from "react-redux";
 
 
@@ -41,285 +40,224 @@ export  const actionPromise = (name, promise) => async (dispatch) => {
   };
 
 
-// !LOGIN
-export const actionAuthLogin = (token) => ({ type: "AUTH_LOGIN", token });
-export const actionAuthLogout = () => (dispatch) => {
-    dispatch({ type: "AUTH_LOGOUT" });
-    localStorage.removeItem("authToken");
-  };
-
-export const actionLogin = (login, password) =>
-    actionPromise('login', gql(`
-    query log($login:String!, $password:String!){
-        login(login: $login, password: $password)
-      }`, { login, password }))
-
-export const actionFullLogin = (login , password ) =>
-    async dispatch => {
-        let token = await dispatch(actionLogin(login, password))
-        if (token) {
-
-            await dispatch(actionAuthLogin(token))
-            await dispatch(actionGetUserData())
-            // MAIN
-            await dispatch(actionAllPlaylists()) 
-            await dispatch(actionGetUserPlaylists())
-            // await dispatch(actionGetUsersPlaylistByID())
+// !GET PRODUCTS
+export const actionGetSpots = () => 
+        async dispatch => {
+          await dispatch(actionPromise("spots" , getData("http://localhost:8090/spots")))
         }
-    }
 
-// ! REGISTRATION
-export const actionRegister = (login, password) =>
-    actionPromise('registration', gql(`
-        mutation register($login:String!, $password:String!) {
-            createUser(login: $login, password: $password) {
-                login, _id
-            }
+export const actionFullGetCategories = () =>
+        async dispatch => {
+            await dispatch(actionPromise("categories" , getData("http://localhost:8090/categories")))
         }
-        `, { login, password })
-    )
 
-export const actionFullRegister = (login, password) =>
-    async dispatch => {
-        await dispatch(actionRegister(login, password))
-        await dispatch(actionFullLogin(login, password))
-    }
-
-
-// !PLAYLISTS
-export const actionAllPlaylists = (_id) => 
-actionPromise('allPlaylists', gql(`
-query playlistsAll($q: String){
-	PlaylistFind(query: $q){
-    _id name tracks {
-        _id url originalFileName
-    }
-  }
-}
-`, {q: JSON.stringify([{ _id }]) }))
-
-
-
-
-export const actionGetUserData = () => {
-    let _id = jwtDecode(localStorage.authToken).sub.id
-    return (
-        actionPromise('userData', gql(`
-            query($userId: String!) {
-                UserFindOne(query: $userId){
-                    login, _id, avatar {_id, url, originalFileName}
-                }
-            }
-        `, { userId: JSON.stringify([{ _id }]) }))
-    )
-}
-
-
-export const actionGetUserPlaylists = () => {
-    let _id = jwtDecode(localStorage.authToken).sub.id
-    return (
-        actionPromise('userPlaylists', gql(`
-            query getPlaylistByOwnerId($ownerId:String!) {
-                PlaylistFind(query: $ownerId) {
-                    _id, name
-                }
-            }
-        `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
-    )
-}
-
-export const actionGetUserTracks = () => {
-    let _id = jwtDecode(localStorage.authToken).sub.id
-    return (
-        actionPromise('userTracks', gql(`
-            query getUserTracks($ownerId: String!) {
-                TrackFind(query: $ownerId) {
-                    _id, originalFileName, url,
-                    id3 { title, artist, album }
-                }
-            }
-        `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
-    )
-}
-
-
-    export const actionGetUsersPlaylistByID = (_id) => 
-    actionPromise('AllUsersPlaylistsByID', gql(`
-    query plsID($q: String){
-        PlaylistFindOne(query: $q){
-        _id name description tracks{
-        _id url originalFileName
+export const actionFullGetProducts = () =>
+        async dispatch => {
+            await dispatch(actionPromise("products" , getData("http://localhost:8090/products")))
         }
-    }
-    }
-    `, {q: JSON.stringify([{ _id }]) }))
 
-
-    export const actionTrackFindOne = (_id) => 
-    actionPromise('trackFindOne', gql(`
-    query trFnd($q: String){
-        TrackFindOne(query: $q){
-        _id url originalFileName
-         }
-    }
-    `, {q: JSON.stringify([{ _id }]) }))
-
-
-    export const actionUpdatePlaylist = (playlistId, updatedPlaylist) =>
-    async dispatch => {
-        await dispatch(actionPromise('tracksUpdate', gql(`
-            mutation($playlistId: ID, $newTracks: [TrackInput]) {
-                PlaylistUpsert(playlist:{ _id: $playlistId, tracks: $newTracks}) {
-                _id, name, tracks { _id, url, originalFileName, id3{ title, artist, album } }
-                }
-            }
-            `, { playlistId: playlistId, newTracks: updatedPlaylist.map(({_id}) => ({_id})) }))
-        )
-        await dispatch(actionGetUsersPlaylistByID(playlistId))
-    }
-
-
-
-    export const actionAddPlaylist = (playlistName , descriptionName) =>
-    async dispatch => {
-        await dispatch(actionPromise('addPlaylist', gql(`
-            mutation addPlaylist ($playlistName: String , $descriptionName: String ){
-                PlaylistUpsert(playlist: {name: $playlistName , description: $descriptionName}) {
-                    _id, name , description
-                }
-            }
-        `, { playlistName: playlistName , descriptionName: descriptionName })))
-        dispatch(actionGetUserPlaylists())
-    }
-
-
-
-    export const actionLoadFile = (file) => {
-    let fd = new FormData()
-    fd.append('track' , file)
-
-    return (
-        actionPromise('loadFile', fetch(backendURL + '/track', {
-            method: "POST",
-            headers: localStorage.authToken ? { Authorization: 'Bearer ' + localStorage.authToken } : {},
-            body: fd
-        })
-            .then(res => res.json())
-        )
-    )
-    }
-
-
-    export const actionUploadAvatar = (file) =>
-    async (dispatch, getState) => {
-        await dispatch(actionLoadFile(file, 'upload'))
-        await dispatch(actionPromise('setAvatar', gql(`
-        mutation {
-        UserUpsert(user:{_id: "${jwtDecode(localStorage.authToken).sub.id}", avatar: {_id: "${getState().promise?.loadFile?.payload?._id}"}}){
-            _id, login, avatar{
-                _id, url
-            }
+export const actionFullGetIngredients = () =>
+        async dispatch => {
+            await dispatch(actionPromise("ingredients" , getData("http://localhost:8090/getIngredients")))
         }
+export const actionRequestOrder = () => 
+        async dispatch => {
+            await dispatch(actionPromise("order" , pushData("http://localhost:8090/buy")))
         }
-    `)))
-        dispatch(actionGetUserData())
-    }
 
 
 
+// export const actionAuthLogin = (token) => ({ type: "AUTH_LOGIN", token });
+// export const actionAuthLogout = () => (dispatch) => {
+//     dispatch({ type: "AUTH_LOGOUT" });
+//     localStorage.removeItem("authToken");
+//   };
 
+// export const actionLogin = (login, password) =>
+//     actionPromise('login', gql(`
+//     query log($login:String!, $password:String!){
+//         login(login: $login, password: $password)
+//       }`, { login, password }))
 
+// export const actionFullLogin = (login , password ) =>
+//     async dispatch => {
+//         let token = await dispatch(actionLogin(login, password))
+//         if (token) {
 
+//             await dispatch(actionAuthLogin(token))
+//             await dispatch(actionGetUserData())
+//             // MAIN
+//             await dispatch(actionAllPlaylists()) 
+//             await dispatch(actionGetUserPlaylists())
+//             // await dispatch(actionGetUsersPlaylistByID())
+//         }
+//     }
 
-
-
-
-
-
-
-// export const actionGetUserTracks = () => {
-//     let _id = jwtDecode(localStorage.authToken).sub.id
-//     return (
-//         actionPromise('getTracks', gql(`
-//             query getTracksByOwnerId($ownerId:String!) {
-//                 TrackFind(query: $ownerId) {
-//                     _id url originalFileName
-//                 }
+// // ! REGISTRATION
+// export const actionRegister = (login, password) =>
+//     actionPromise('registration', gql(`
+//         mutation register($login:String!, $password:String!) {
+//             createUser(login: $login, password: $password) {
+//                 login, _id
 //             }
-//         `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
+//         }
+//         `, { login, password })
 //     )
-//   }
-  
 
-// export const actionGetUserPlaylists = () => {
-//   let _id = jwtDecode(localStorage.authToken).sub.id
-//   return (
-//       actionPromise('AllUsersPlaylists', gql(`
-//           query getPlaylistByOwnerId($ownerId:String!) {
-//               PlaylistFind(query: $ownerId) {
-//                   _id name 
-//               }
-//           }
-//       `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
-//   )
-// }
+// export const actionFullRegister = (login, password) =>
+//     async dispatch => {
+//         await dispatch(actionRegister(login, password))
+//         await dispatch(actionFullLogin(login, password))
+//     }
 
 
-
-
-
-// export const actionTrackByID = (_id) => 
-// actionPromise('TrackById', gql(`
-// query trackID($q: String){
-// 	TrackFindOne(query: $q){
-//     _id url originalFileName playlists{
-//         _id owner
+// // !PLAYLISTS
+// export const actionAllPlaylists = (_id) => 
+// actionPromise('allPlaylists', gql(`
+// query playlistsAll($q: String){
+// 	PlaylistFind(query: $q){
+//     _id name tracks {
+//         _id url originalFileName
 //     }
 //   }
 // }
 // `, {q: JSON.stringify([{ _id }]) }))
 
 
-// export const actionAddPlaylist = playlistName =>
-//     async dispatch => {
-//         await dispatch(actionPromise('addPlaylist', gql(`
-//             mutation addPlaylist ($playlistName: String!){
-//                 PlaylistUpsert(playlist: {name: $playlistName}) {
-//                     _id , name
+
+
+// export const actionGetUserData = () => {
+//     let _id = jwtDecode(localStorage.authToken).sub.id
+//     return (
+//         actionPromise('userData', gql(`
+//             query($userId: String!) {
+//                 UserFindOne(query: $userId){
+//                     login, _id, avatar {_id, url, originalFileName}
 //                 }
 //             }
-//         `, { playlistName: playlistName })))
+//         `, { userId: JSON.stringify([{ _id }]) }))
+//     )
+// }
+
+
+// export const actionGetUserPlaylists = () => {
+//     let _id = jwtDecode(localStorage.authToken).sub.id
+//     return (
+//         actionPromise('userPlaylists', gql(`
+//             query getPlaylistByOwnerId($ownerId:String!) {
+//                 PlaylistFind(query: $ownerId) {
+//                     _id, name
+//                 }
+//             }
+//         `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
+//     )
+// }
+
+// export const actionGetUserTracks = () => {
+//     let _id = jwtDecode(localStorage.authToken).sub.id
+//     return (
+//         actionPromise('userTracks', gql(`
+//             query getUserTracks($ownerId: String!) {
+//                 TrackFind(query: $ownerId) {
+//                     _id, originalFileName, url,
+//                     id3 { title, artist, album }
+//                 }
+//             }
+//         `, { ownerId: JSON.stringify([{ ___owner: _id }]) }))
+//     )
+// }
+
+
+//     export const actionGetUsersPlaylistByID = (_id) => 
+//     actionPromise('AllUsersPlaylistsByID', gql(`
+//     query plsID($q: String){
+//         PlaylistFindOne(query: $q){
+//         _id name description tracks{
+//         _id url originalFileName
+//         }
+//     }
+//     }
+//     `, {q: JSON.stringify([{ _id }]) }))
+
+
+//     export const actionTrackFindOne = (_id) => 
+//     actionPromise('trackFindOne', gql(`
+//     query trFnd($q: String){
+//         TrackFindOne(query: $q){
+//         _id url originalFileName
+//          }
+//     }
+//     `, {q: JSON.stringify([{ _id }]) }))
+
+
+//     export const actionUpdatePlaylist = (playlistId, updatedPlaylist) =>
+//     async dispatch => {
+//         await dispatch(actionPromise('tracksUpdate', gql(`
+//             mutation($playlistId: ID, $newTracks: [TrackInput]) {
+//                 PlaylistUpsert(playlist:{ _id: $playlistId, tracks: $newTracks}) {
+//                 _id, name, tracks { _id, url, originalFileName, id3{ title, artist, album } }
+//                 }
+//             }
+//             `, { playlistId: playlistId, newTracks: updatedPlaylist.map(({_id}) => ({_id})) }))
+//         )
+//         await dispatch(actionGetUsersPlaylistByID(playlistId))
+//     }
+
+
+
+//     export const actionAddPlaylist = (playlistName , descriptionName) =>
+//     async dispatch => {
+//         await dispatch(actionPromise('addPlaylist', gql(`
+//             mutation addPlaylist ($playlistName: String , $descriptionName: String ){
+//                 PlaylistUpsert(playlist: {name: $playlistName , description: $descriptionName}) {
+//                     _id, name , description
+//                 }
+//             }
+//         `, { playlistName: playlistName , descriptionName: descriptionName })))
 //         dispatch(actionGetUserPlaylists())
 //     }
 
-//     export const actionUpdatePlaylist = (idPlaylist, array) =>
-//         actionPromise(
-//         "loadTracksToPlaylist",
-//         console.log(array),
-//         gql(
-//         `mutation loadTracksToPlaylist($playlist:PlaylistInput) {
-//         PlaylistUpsert(playlist:$playlist) {
-//         _id name tracks {_id url originalFileName} owner {_id login}
-//             }
-//         }`,
-//         { playlist: { _id: idPlaylist, tracks: array } }
-//             )
-//         );
 
-// export const actionUploadFile = (file) => {
-//     const formData = new FormData
-//     formData.append('track' , file)
-//     return actionPromise(
-//         `${"uploadTrack"}`,
-//         fetch(`${backendURL}/${"track"}`, {
-//         method: "POST",
-//         headers: {
-//             ...(localStorage.authToken ? { "Authorization": "Bearer " + localStorage.authToken } : {})
-//         },
-//         body: formData,
-//         }).then((res) => res.json())
-//         );
-//     };
+
+//     export const actionLoadFile = (file) => {
+//     let fd = new FormData()
+//     fd.append('track' , file)
+
+//     return (
+//         actionPromise('loadFile', fetch(backendURL + '/track', {
+//             method: "POST",
+//             headers: localStorage.authToken ? { Authorization: 'Bearer ' + localStorage.authToken } : {},
+//             body: fd
+//         })
+//             .then(res => res.json())
+//         )
+//     )
+//     }
+
+
+//     export const actionUploadAvatar = (file) =>
+//     async (dispatch, getState) => {
+//         await dispatch(actionLoadFile(file, 'upload'))
+//         await dispatch(actionPromise('setAvatar', gql(`
+//         mutation {
+//         UserUpsert(user:{_id: "${jwtDecode(localStorage.authToken).sub.id}", avatar: {_id: "${getState().promise?.loadFile?.payload?._id}"}}){
+//             _id, login, avatar{
+//                 _id, url
+//             }
+//         }
+//         }
+//     `)))
+//         dispatch(actionGetUserData())
+//     }
+
+
+
+
+
+
+
+
+
 
 
 
