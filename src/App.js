@@ -19,6 +19,8 @@ import { actionSpotSelect } from './store/cardReducer';
 import BeatLoader from 'react-spinners/BeatLoader';
 import Payment from './pages/Payment';
 import Contacts from './pages/Contacts';
+
+// !!!!!!!!!!!!!!
 import Discount from './pages/Discount';
 
 import { loadFirePreset } from 'tsparticles-preset-fire';
