@@ -1,12 +1,7 @@
 .App {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-
-  background-color: #171010;
+  min-height: 100%;
+  /* background-image: linear-gradient(to right top, #8b001e, #69091f, #480e1c, #270d14, #000000); */
+  /* background-image: linear-gradient(to left bottom, #051937, #35214e, #662356, #94264f, #b53a3a); */
 }
 .loading {
   display: block;

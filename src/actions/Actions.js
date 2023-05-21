@@ -56,14 +56,62 @@ export const actionFullGetProducts = () =>
             await dispatch(actionPromise("products" , getData("http://localhost:8090/products")))
         }
 
+export const actionFullGetProductsFranchise = () =>
+        async dispatch => {
+            await dispatch(actionPromise("productsFranchise" , getData("http://localhost:8090/productsLimeTest")))
+        }
+
 export const actionFullGetIngredients = () =>
         async dispatch => {
             await dispatch(actionPromise("ingredients" , getData("http://localhost:8090/getIngredients")))
         }
+
 export const actionRequestOrder = () => 
         async dispatch => {
             await dispatch(actionPromise("order" , pushData("http://localhost:8090/buy")))
         }
+
+export const actionGetClients = () => 
+        async dispatch => {
+            await dispatch(actionPromise("clients" , getData("http://localhost:8090/clients")))
+        }
+
+export const SET_SEARCH_INPUT_VALUE = "SET_SEARCH_INPUT_VALUE";
+
+
+export const setSearchInput = (searchInputValue) => ({
+          type: SET_SEARCH_INPUT_VALUE,
+          payload: searchInputValue,
+        });
+
+export const setFranchise = () => 
+        async dispatch => {
+          await dispatch(actionPromise("franchise" , getData("http://localhost:8090/franchise")))
+        }
+
+// export const actionGetSpots = () => 
+//         async dispatch => {
+//           await dispatch(actionPromise("spots" , getData("https://mythai-js.onrender.com/spots")))
+//         }
+
+// export const actionFullGetCategories = () =>
+//         async dispatch => {
+//             await dispatch(actionPromise("categories" , getData("https://mythai-js.onrender.com/categories")))
+//         }
+
+// export const actionFullGetProducts = () =>
+//         async dispatch => {
+//             await dispatch(actionPromise("products" , getData("https://mythai-js.onrender.com/products")))
+//         }
+
+// export const actionFullGetIngredients = () =>
+//         async dispatch => {
+//             await dispatch(actionPromise("ingredients" , getData("https://mythai-js.onrender.com/getIngredients")))
+//         }
+// export const actionRequestOrder = () => 
+//         async dispatch => {
+//             await dispatch(actionPromise("order" , pushData("https://mythai-js.onrender.com/buy")))
+//         }
 
 
 

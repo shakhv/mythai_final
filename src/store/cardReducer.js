@@ -1,58 +1,70 @@
 import { store } from "./store"
 
-function cartReducer(state = {}, { type, spot_name, spot_id, count , _id, name , price}) {
-      if (type === "CART_ADD") {
-          return {
-              ...state,
-              [_id]: {
-                  name: name,
-                  count: state[_id] ? state[_id].count + count : count,
-                  price: state[_id] ? state[_id].price + +price : +price,
-                  product_id: +_id
-              }
-          }
+function cartReducer(state = {}, { type, spot_name, spot_adress, count, _id, name, price, photo , order}) {
+  if (type === "CART_ADD") {
+    return {
+      ...state,
+      [_id]: {
+        name: name,
+        count: state[_id] ? state[_id].count + count : count,
+        price: price,
+        totalPrice: state[_id] ? (state[_id].count + count) * price : count * price, // Calculate total price of the item
+        photo: photo,
+        product_id: +_id
       }
-      if(type === "SET_SPOT"){
-          return {
-              spot : {
-                  name: spot_name ,
-                  id: spot_id
-              }
-          }
-
-      }
-  
-      if (type === "CART_CHANGE") {
-          return {
-              ...state,
-              [_id]: {
-                  name: name,
-                  count: state[_id] ?  state[_id].count - 1 : count,
-                  price: state[_id] ? state[_id].price - +price : +price,
-                  product_id: +_id
-              }
-          }
-      }
-
-      if (type === 'CART_REMOVE') {
-          let { [_id]: count, ...copyWithout } = state
-          return copyWithout
-      }
-  
-      if (type === 'CART_CLEAR') {
-          return {}
-      }
-  
-      return state
+    };
   }
+
+  if (type === "SET_SPOT") {
+    return {
+      spot: {
+        name: spot_name,
+        spot_adress: spot_adress,
+      }
+    };
+  }
+
+  if (type === "CART_CHANGE") {
+    return {
+      ...state,
+      [_id]: {
+        name: name,
+        count: state[_id] ? state[_id].count - 1 : count,
+        price: price,
+        totalPrice: state[_id] ? (state[_id].count - 1) * price : count * price, // Calculate total price of the item
+        photo: photo,
+        product_id: +_id
+      }
+    };
+  }
+
+  if (type === "CART_REMOVE") {
+    let { [_id]: count, ...copyWithout } = state;
+    return copyWithout;
+  }
+
+  if (type === "ORDER") {
+    return {
+      order: order,
+      spot: state.spot
+    };
+  }
+
+  if (type === "DELETE_ORDER") {
+    let { order, ...copyWithoutOrder } = state;
+    return copyWithoutOrder;
+  }
+
+  return state;
+}
 
  export default cartReducer 
 
-export const actionSpotSelect = (name , id ) => ({type: "SET_SPOT" , spot_name: name , spot_id: id})
-export const actionCartAdd = (n, id, name , price) => ({ type: "CART_ADD", count: n, _id: id, name , price: price })
-export const actionCartChange = (n, id, name , price) => ({ type: "CART_CHANGE", count: n, _id: id, name  , price: price})
+export const actionSpotSelect = (name , spot_adress) => ({type: "SET_SPOT" , spot_name: name , spot_adress: spot_adress})
+export const actionCartAdd = (n, id, name , price , photo) => ({ type: "CART_ADD", count: n, _id: id, name , price: price , photo: photo })
+export const actionCartChange = (n, id, name , price , photo) => ({ type: "CART_CHANGE", count: n, _id: id, name  , price: price , photo: photo})
 export const actionCartRemove = id => ({ type: "CART_REMOVE", _id: id })
-const actionCartClear = () => ({ type: "CART_CLEAR" })
+export const actionNumberOfOrder = (order) => ({ type: "ORDER" , order: order})
 
 
 

@@ -12,48 +12,36 @@ import "./App.css"
 
 import { MainPage } from './pages/MainPage';
 import { useEffect ,CSSProperties } from 'react';
-import { actionFullGetCategories, actionFullGetIngredients, actionFullGetProducts, actionGetSpots } from './actions/Actions';
-import SubmitOrder from './pages/SubmitOrder';
+import { actionFullGetCategories, actionFullGetIngredients, actionFullGetProducts, actionFullGetProductsFranchise, actionGetClients, actionGetSpots, setFranchise } from './actions/Actions';
+import SubmitOrder, { SubmitOrderConnect } from './pages/SubmitOrder';
 import { BasketConnect } from './components/Basket';
 import { actionSpotSelect } from './store/cardReducer';
 import BeatLoader from 'react-spinners/BeatLoader';
+import Payment from './pages/Payment';
+import Contacts from './pages/Contacts';
+import Discount from './pages/Discount';
 
-
+import { loadFirePreset } from 'tsparticles-preset-fire';
+import Particles from 'react-tsparticles';
 // spots -> get_categories -> product get_spots = id 
 // если выбран спот 1 то тогда делаем диспатч в редакс и передаем стоп , после этого на компоненте делаем проверку в зависимости от спота рендерим компонент продак спот ид = 1 
 
 store.subscribe(() => console.log(store.getState()));
 
-const SetRestModal = () => {
-  return (
-    <div className='selectRestModal'>
-      <div className='selectRestModal_content'>
-          <h1>MyThai</h1>
-          <h4>Оберіть місто:</h4>
-          <div className='selectRestModal_content_cities'>
-                <span>Лозова</span>
-                <span>Умань</span>
-                <span>Ізюм</span>
-                <span>Чернівці</span>
-                <span>Черкаси</span>
-                <span>Львів</span>
-          </div>
-          <Link className='start_button' to="/mainpage"><span>Обрати</span></Link>
-      </div>
-    </div>
-  )
+export class ParticlesContainer extends React.PureComponent {
+  async customInit(engine: Engine): Promise<void> {
+    await loadFirePreset(engine);
+  }
+
+  render() {
+    const options = {
+      preset: "fire",
+    };
+
+    return <Particles options={options} init={this.customInit} />;
+  }
 }
 
-{/* <h1>MyThai Суши</h1>
-<h5>Оберіть місто:</h5>
-<div className='selectRestModal_content_cities'>
-<span>Лозова</span>
-<span>Умань</span>
-<span>Ізюм</span>
-<span>Чернівці</span>
-<span>Черкаси</span>
-<span>Львів</span>
-</div> */}
 //  ! DARK MODE
 export const ThemeContext = createContext(null)
 
@@ -67,58 +55,78 @@ function App() {
 
   useEffect(() => {
     store.dispatch(actionGetSpots())
+    store.dispatch(actionFullGetProductsFranchise())
+    store.dispatch(actionGetClients())
     store.dispatch(actionFullGetCategories())
     store.dispatch(actionFullGetProducts())
     store.dispatch(actionFullGetIngredients())
   }, [])
 
-  useEffect(() => {
-    setLoading(true)
-    setTimeout(() => {
-      if(store.getState().promise?.spots?.status == "FULFILLED"){
-        if(!localStorage.restaurant){
-          store.dispatch(actionSpotSelect(store.getState().promise?.spots?.payload?.spots[0]?.spot_id))
-        }else{
-          store.dispatch(actionSpotSelect(localStorage.restaurant))
-        }
-        setLoading(false)
-      }else {
-        setLoading(true)
-      }
-    }, 2000)
-  }, [])
-    // !!!!!!!!!!!!!!!!!!!!!!
+  store.dispatch(setFranchise())
+  
 
+  useEffect(() => {
+    let timeoutId;
+  
+    const checkSpotsStatus = async () => {
+      try {
+        const spotsStatus = store.getState().promise?.spots?.status;
+        
+        if (spotsStatus === "FULFILLED") {
+          const selectedSpotId = localStorage.restaurant
+          const selectedSpotAddress = localStorage.adress
+          store.dispatch(actionSpotSelect(selectedSpotId ,selectedSpotAddress));
+          setLoading(false);
+        } else {
+          setLoading(true);
+          timeoutId = setTimeout(checkSpotsStatus, 10000);
+        }
+      } catch (error) {
+        console.error(error);
+        setLoading(true);
+        timeoutId = setTimeout(checkSpotsStatus, 10000);
+      }
+    };
+  
+    checkSpotsStatus();
+  
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
+ 
 
   return (
-    // <ThemeContext.Provider value={{theme , toogleTheme}}>
-
-    // <div className='App'> 
+    <div className='App' style={{position: 'relative'}}> 
+           <ParticlesContainer />
+          
           <Provider store={store}>
             <Router>
-              {/* {
+              {
                         loading ? 
-                        <BeatLoader
-
-                                color="red"
-                                loading={loading}
-                                className="loading"
-                                size={30}
-                                aria-label="Loading Spinner"
-                                data-testid="loader"
-                        />
-                        : */}
-
+                        <div className='div_loading'>
+                          <BeatLoader
+                                  color="#291200"
+                                  loading={loading}
+                                  className="loading"
+                                  size={30}
+                                  aria-label="Loading Spinner"
+                                  data-testid="loader"
+                          />
+                        </div>
+                        :
               <Routes>
                         <Route path="/" element={<MainPage />} exact/>
-                        <Route path='/orderSubmit' element={<SubmitOrder />} exact/>
+                        <Route path='/orderSubmit' element={<SubmitOrderConnect />} exact/>
                         <Route path="/basket" element={<BasketConnect/>} exact/>
+                        <Route path='/payment'element={<Payment />} exact/>
+                        <Route path='/contacts'element={<Contacts />} exact/>
+                        <Route path='/discount'element={<Discount />} exact/>
               </Routes>
-              {/* } */}
+            } 
             </Router>
           </Provider>
-  
-    // </ThemeContext.Provider> 
+      </div>
   );
 }
 

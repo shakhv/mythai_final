@@ -16,6 +16,7 @@ export const getData = url =>
         })
         .then(res => res.json())
 
+        
 export const pushData = url => 
     fetch(url , {
         method: "POST",

@@ -1,6 +1,6 @@
 import React from 'react'
 import { store } from '../store/store';
-import { connect } from 'react-redux';
+import { connect, useSelector } from 'react-redux';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
@@ -15,24 +15,70 @@ import Input from '@mui/joy/Input';
 import moment from "moment";
 import StorefrontIcon from '@mui/icons-material/Storefront';
 
-import {useJsApiLoader , Autocomplete} from '@react-google-maps/api'
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+
+import { actionCartAdd, actionCartChange, actionCartRemove, actionNumberOfOrder, actionSpotSelect} from '../store/cardReducer';
+import CloseIcon from '@mui/icons-material/Close';
+import RemoveIcon from '@mui/icons-material/Remove';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+
+import { Autocomplete, LoadScript } from '@react-google-maps/api';
 import { Skeleton } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link , useNavigate } from 'react-router-dom';
 import { actionRequestOrder } from '../actions/Actions';
+import { useRef } from 'react';
+import { useLayoutEffect } from 'react';
+import { ParticlesContainer } from '../App';
 
 const workHours = ["Доставити швидше", "10:30" , "11:00" , "11:30" , "12:00" , "12:30" , "13:00" , "13:30" , "14:00" , "14:30" , "15:00" , "15:30" , "16:00" , "16:30" , "17:00" , "17:30" , "18:00" , "18:30" , "19:00" , "19:30" , "20:00" , "20:30" , "21:00"]
 const getBySelf = ["Заберу раніше", "10:30" , "11:00" , "11:30" , "12:00" , "12:30" , "13:00" , "13:30" , "14:00" , "14:30" , "15:00" , "15:30" , "16:00" , "16:30" , "17:00" , "17:30" , "18:00" , "18:30" , "19:00" , "19:30" , "20:00" , "20:30" , "21:00"]
 
-
+const libraries = ['places'];
 const SelectAdress = ({selectAdress , setSelectAdress , setOrderActive}) => {
+  const [adress , setAdress] = useState('')
+  const [adressError , setAdressError] = useState('')
 
-  const handleChangeModal = () => {
-      setSelectAdress(false)
-      setOrderActive(true)
+  const [place, setPlace] = useState(null);
+
+  const [room , setRoom] = useState('')
+
+  const handleSetAdress = (event) => {
+        setAdress(event.target.value)
   }
 
+  const handleSetRoom = (event) => {
+        setRoom(event.target.value)
+  }
+
+  
+  const handleChangeModal = () => {
+        setSelectAdress(false)
+        setOrderActive(true)
+  }
+
+  let autocomplete;
+
+  const onLoad = (autocompleteObject) => {
+    console.log('Autocomplete loaded:', autocompleteObject);
+    autocomplete = autocompleteObject;
+  };
+
+  const onPlaceChanged = () => {
+    if (autocomplete !== null) {
+      setPlace(autocomplete.getPlace());
+    } else {
+      console.log('Autocomplete is not loaded yet!');
+    }
+  };
+
+
   const options = {
-    componentRestrictions: {country: "ua"},
+        componentRestrictions: {country: "ua"},
+  }
+
+  const handleSubmit = (adress , room) => {
+        handleChangeModal()
+        localStorage.setItem("user_adress" , adress && room ? `${adress} ${room}`: adress)
   }
 
   return (
@@ -46,25 +92,43 @@ const SelectAdress = ({selectAdress , setSelectAdress , setOrderActive}) => {
                 </div>
               </div>
               <div className='select_adress_content'>
-                    <div className='select_adress_top'> 
+                    <div className='select_adress_top'  sx={{borderRadius: 10}}> 
                           <span>Адреса доставлення</span>
-                          <PlaceOutlinedIcon sx={{backgroundColor: '#171010',color: "silver"}} className="select_adress_input_icon"/>
-                         
-                          <Autocomplete className="select_adress_div_autocompelete" options={options}>
-                            <input 
-                              placeholder="Вкажіть адресу доставлення" 
+                          <LoadScript googleMapsApiKey="AIzaSyD-3lAed2PzWnYQG9wHBnIKguUzfcVGw9Y"  libraries={libraries} >
+                          {/* <PlaceOutlinedIcon sx={{backgroundColor: '#171010',color: "silver"}} className="select_adress_input_icon"/> */}
+                            <Autocomplete
+                              options={options}
+                              onLoad={onLoad}
+                              onPlaceChanged={onPlaceChanged}
+                              className="pac-container">
+                              <input
+                                type="text"
+                                value={adress}
+                                placeholder="Вкажіть адресу доставлення"
+                                onChange={handleSetAdress}
+                                className="pac-input"
                               />
-                          </Autocomplete>
+                            </Autocomplete>
+                          </LoadScript>
                     </div>
                     <div>
                           <span>Під’їзд, поверх, квартира</span>
                           <Input 
                             className="adress_input" 
+                            value={room}
+                            onChange={handleSetRoom}
                             sx={{backgroundColor: "#171010", border: 'none'
                             }} 
                             />
                     </div>
-                    <button>Зберегти</button>
+                    {adressError ? <div style={{color: "red" , display: "flex" , alignItems: "center"}}><ErrorOutlineOutlinedIcon sx={{backgroundColor: "inherit" , paddingRight: "5px"}}/>{adressError}</div> : []}
+                    <button onClick={() => {
+                    if (adress) {
+                      handleSubmit(adress , room);
+                    } else {
+                      setAdressError("Введіть адресу");
+                    }
+                      }}>Зберегти</button>
               </div>
           </div>
       </div>
@@ -73,24 +137,92 @@ const SelectAdress = ({selectAdress , setSelectAdress , setOrderActive}) => {
 }
 
 
-const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , products}) => {
+const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , products , productsFranchise , deliveryPrice , comment}) => {
 
   const [selectedValue, setSelectedValue] = useState('delivery');
   const [selectAdress , setSelectAdress] = useState(false)
+  const navigation = useNavigate()
+
+  const selectedSpot = useSelector((state) => state.cardReducer?.spot?.spot_adress);
+
   const currentHour = moment().hour()
   const currentMinute = moment().minute()
   const timeWork = []
-  const selfGet = []
-  // const [age, setAge] = React.useState('');
-  const [name , setName] = useState('')
-  const [phone , setPhone] = useState('')
+  const selfGet = []  
 
-  const handleName = (e) => {
-      setName(e.target.value)
+  const [name , setName] = useState('')
+  const [nameError , setNameError] = useState(false)
+
+  const [phone , setPhone] = useState('')
+  const [phoneError, setPhoneError] = useState('');
+
+  const [adress , setAdress] = useState('')
+  const storedAdress = localStorage.getItem('user_adress')
+
+  const [service_mode , setServiceMode] = useState(3)
+
+  const [selectedTime , setSelectedTime] = useState('')
+
+  const [showComponent, setShowComponent] = useState(true);
+
+  useEffect(() => {
+    // Check if the maximum width of the screen is greater than 800 pixels
+    const mediaQuery = window.matchMedia('(max-width: 800px)');
+
+    // Hide the component if the screen is too large
+    setShowComponent(mediaQuery.matches);
+
+    // Add a listener to the media query to update the component when the screen size changes
+    const handleMediaQueryChange = () => {
+      setShowComponent(mediaQuery.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleMediaQueryChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleMediaQueryChange);
+    };
+  }, []);
+
+
+  const [allErrors , setAllErrors] = useState(false)
+
+  const validateName = (value) => {
+    const regex = /[a-zA-Zа-яА-Я]{2,}/;
+    if(regex.test(value)){
+      localStorage.setItem("name" , value)
+      setAllErrors(false)
+    }
+    if (!regex.test(value)) {
+      return true;
+    }
+    return '';
+  };
+
+  const handleName = (event) => {
+    const value = event.target.value;
+    const error = validateName(value);
+    setName(value); // update name state with input value
+    setNameError(error);
   }
 
-  const handlePhone = (e) => {
-      setPhone(e.target.value)
+  const validatePhone = (value) => {
+    const regex = /^\+380\d{9}$/;
+    if(regex.test(value)){
+      localStorage.setItem("phone" , value)
+      setAllErrors(false)
+    }
+    if (!regex.test(value)) {
+      return "Введіть номер телефону , +380";
+    }
+    return '';
+  };
+  
+  const handlePhone = (event) => {
+    const value = event.target.value;
+    const error = validatePhone(value);
+    setPhone(value); // update phone state with input value
+    setPhoneError(error);
   }
 
   const handleChange = (event) => {
@@ -98,36 +230,74 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
   };
 
   useEffect(() => {
+    const storedName = localStorage.getItem('name');
+    const storedPhone = localStorage.getItem('phone')
+    if (storedName) {
+      setName(storedName);
+    }
+    if(storedPhone){
+      setPhone(storedPhone)
+    }
+    if(storedAdress){
+      setAdress(storedAdress)
+    }
+  }, [storedAdress])
+  
+
+  useEffect(() => {
     // if(orderActive === false){
     //   setOpenBasket(true)
     // }
     if(selectAdress === true){
       setOrderActive(false)
-      setOpenBasket(false)
+      // setOpenBasket(false)
     }
   }, [orderActive , selectedValue , selectAdress])
 
-  // const handleChange1 = (event) => {
-  //   setAge(event.target.value);
-  // };
+  let mainTime = currentHour + ":" + currentMinute;
+  let time;
 
-  let time = currentHour + ":" + currentMinute
+  if(mainTime > "00:00"){
+    time = "00:00"
+  }
+
+  if(mainTime > "10:30"){
+    time = mainTime
+  }
 
   const disableHours = () => {
-    for(let i = 0;i < workHours.length; i++){
-      if(time <= workHours[i]){
-        timeWork.push(workHours[i])
+    for(let i = 0; i < workHours.length; i++) {
+      if(time <= workHours[i]) {
+        timeWork.push(workHours[i]);
       }
     }
-    for(let i = 0;i < getBySelf.length; i++){
-      if(time <= getBySelf[i]){
-        selfGet.push(getBySelf[i])
+    for(let i = 0; i < getBySelf.length; i++) {
+      if(time <= getBySelf[i]) {
+        selfGet.push(getBySelf[i]);
       }
     }
   }
   disableHours()
 
+  function updateProductId(products, productsFranchise) {
+    const updatedProducts = products?.map(product => {
+      const franchiseProduct = productsFranchise.find(franchise => franchise.product_name === product.name);
+      if (franchiseProduct) {
+        return {
+          ...product,
+          product_id: franchiseProduct.product_id,
+          price: franchiseProduct?.product_price
+        };
+      } else {
+        return product;
+      }
+    });
+    return updatedProducts;
+  }
+
   const handleSubmitOrder = (name , phone) => { 
+    navigation("/orderSubmit")
+    
     async function postData(url = '', data = {}) {
       const response = await fetch(url, {
         method: 'POST',
@@ -138,10 +308,34 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
       });
       return response.json(); 
     }
-    postData("http://localhost:8090/buy", {spot: store.getState().cardReducer?.spot?.name, name: name , phone: phone , products: products })
-      .then((data) => {
-        console.log(data);
-      });
+
+    postData("http://localhost:8090/addClient", {spot: store.getState().cardReducer?.spot?.name, name: name , phone: phone , address: adress})
+    .then((response) => {
+      try {
+        const data = response
+
+        postData("http://localhost:8090/buy", {spot: store.getState().cardReducer?.spot?.name, name: name , phone: phone ,service_mode: service_mode, address: adress , products: store.getState().cardReducer?.spot?.name === "8" ? updateProductId(products, productsFranchise) : products , delivery_time: selectedTime ? selectedTime : mainTime, delivery_price: deliveryPrice , comment: comment})
+        .then((response) => {
+          try {
+            const data = response
+            store.dispatch(actionNumberOfOrder(data?.incomingOrderId?.incoming_order_id))
+            console.log(data)
+          } catch (error) {
+            console.error(error);
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+        
+        console.log(data?.incomingOrderId)
+      } catch (error) {
+        console.error(error);
+      }
+    })
+    .catch((error) => {
+      console.error(error);
+    });
   }
 
   return (
@@ -150,7 +344,7 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
       <div className='modal_basket_content' onClick={e => e.stopPropagation()}>
         <div className='order_wrapper'>
           <div className='order_content'>
-            <KeyboardArrowLeftIcon className='order_content_top_arrow' onClick={() => setOrderActive(false)}/> 
+          <KeyboardArrowLeftIcon className='order_content_top_arrow' onClick={() => setOrderActive(false)}/>
             <div className='order_content_top'>
               <span>Замовлення</span>
             </div>
@@ -161,7 +355,15 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
               backgroundColor: '#171010',
               color: "silver"
               }}/>}
-              onChange={handleName} 
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                handleName(event);
+              }}  
+              endDecorator={nameError || allErrors? <ErrorOutlineOutlinedIcon sx={{
+                backgroundColor: 'inherit',
+                color: "red"
+                }}/> : []}
               className="contacts_input" 
               placeholder="Ім'я" 
               sx={{backgroundColor: "#171010", border: 'none' 
@@ -172,11 +374,20 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
               backgroundColor: '#171010',
               color: "silver"
               }}/>} 
-              onChange={handlePhone}
+              value={phone}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                handlePhone(event);
+              }}
+              endDecorator={ phoneError || allErrors? <ErrorOutlineOutlinedIcon sx={{
+                backgroundColor: 'inherit',
+                color: "red"
+                }}/> : []}
               className="contacts_input" placeholder="Номер телефону"
               sx={{backgroundColor: "#171010" , color: 'white'}} 
               />
           </div>
+              {phoneError && <div style={{color: "red" , backgroundColor: "#4e3f3f" , padding: 5 , textAlign: "center"}}>{phoneError}</div>}
           <div className='delivery'>
             <div className='delivery_title'>
             {
@@ -184,11 +395,11 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
             }
             </div>
             <div className='delivery_select'>
-                <label className="labl">
+                <label className="labl" onClick={() => setServiceMode(3)}>
                     <input type="radio" value="delivery" name="gender" onChange={handleChange} checked={selectedValue === 'delivery'}/> 
                     <div>Доставлення</div>
                 </label>
-                <label className="labl">
+                <label className="labl" onClick={() => setServiceMode(2)}>
                     <input type="radio" value="getSelf" name="gender" onChange={handleChange} checked={selectedValue === 'getSelf'}/> 
                     <div>Самовивіз</div>
                 </label>
@@ -202,7 +413,11 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
                   backgroundColor: '#171010',
                   color: "silver"
                   }}/>} 
-                  onClick={() => setSelectAdress(true)}
+                  value={adress ? adress : []}
+                  onClick={() => {
+                      setSelectAdress(true)
+                  }}
+                  readOnly
                   autoComplete="new-password"
                   className="contacts_input" 
                   placeholder="Вкажіть адресу доставлення" 
@@ -211,43 +426,50 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
                   />
                   <div className='time_choose'>
                     <WatchLaterOutlinedIcon className='time_icon'/>
-                    <select  className="contacts_input">
-                    {
-                      timeWork.map((e, i) => (
-                        <option key={i} value={e}>
-                          {e}
-                        </option>
-                      ))
-                    }
+
+                    <select  className="contacts_input" onChange={(e) => setSelectedTime(e.target.value)}>
+
+                    {timeWork.length > 0 ? timeWork.map((e, i) => (
+                      <option key={i} value={e}>
+                        {e}
+                      </option>
+                    )) : (
+                      <option value="">No available hours</option>
+                    )}
+
                     </select>
                   </div>
               </div>
               : []
             }
+            
             {
               selectedValue === "getSelf" ? 
                   <div className='order_contants_details'>
                         <Input 
                           startDecorator={<StorefrontIcon sx={{
                           backgroundColor: '#171010',
-                          color: "silver"
+                          color: "white"
                           }}/>}
                           autoComplete="new-password"
+                          disabled
+                          value={selectedSpot}
                           className="contacts_input" 
-                          placeholder="Вкажіть адресу доставлення" 
+                          // placeholder={selectedSpot}
                           sx={{backgroundColor: "#171010", border: 'none'
                           }} 
                           />
+            
                           <div className='time_choose'>
                               <WatchLaterOutlinedIcon className='time_icon'/>
-                              <select  className="contacts_input">
-                              {
-                                selfGet.map((e, i) => (
-                                  <option key={i} value={e}>
-                                    {e}
-                                  </option>
-                                ))
-                              }
+                              <select  className="contacts_input"  onChange={(e) => setSelectedTime(e.target.value)}>
+                              {selfGet.length > 0 ? selfGet.map((e, i) => (
+                                <option key={i} value={e}>
+                                  {e}
+                                </option>
+                              )) : (
+                                <option value="">No available hours</option>
+                              )}
                               </select>
                           </div>
                   </div>
@@ -257,7 +479,7 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
               <div className='delivery_title'>
                   <span style={{backgroundColor: "inherit" ,color: 'white'}}>Оплата</span> 
               </div>
-                  <Input className='payment_input' placeholder='Готівкой' startDecorator={<CreditCardOutlinedIcon
+                  <Input className='payment_input' disabled placeholder='Готівкой' startDecorator={<CreditCardOutlinedIcon
                   sx={{
                     backgroundColor: 'rgb(159, 156, 156)',
                     color: "white"
@@ -267,9 +489,15 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
             <div className='order_bottom'>
               <div className='order_bottom_price'>
                   <span>Сумма замовлення: <b>{price + " грн"}</b> </span>
-                  {selectedValue === "getSelf"  ? [] : <span>Доставлення: <b>50 грн</b></span>}
+                  {selectedValue === "getSelf"  ? [] : <span>Доставлення: <b>{deliveryPrice}грн</b></span>}
               </div>
-              <Link to="/orderSubmit" className='link_bottom' onClick={() => handleSubmitOrder(name , phone)}>Оформити за <b>{(price  + 50 )} грн</b></Link>
+              <button className='link_bottom' onClick={() => {
+              if (name && phone && !nameError && !phoneError) {
+                handleSubmitOrder(name, phone);
+              } else {
+                setAllErrors(true)
+              }
+              }}>Оформити за <b>{(price  + deliveryPrice )} грн</b></button>
             </div>
 
         </div>
@@ -280,152 +508,338 @@ const OrderModal = ({orderActive , setOrderActive , setOpenBasket , price , prod
   )
 }
 
+// handleSubmitOrder(name , phone)
+const RowDish = ({ name, price, count, photo, id  , totalPrice}) => {
+  const [newCount, setNewCount] = useState(count);
 
-const RowDish = ({name , price , count}) =>
-<div className='row_dish'>
-  <img src='data:image/png;base64,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'/>
-  <div className='row_dish_content'>
-    <div className='row_dish_title'>
-      <span>{name}</span>
-      <span>{price} грн</span>
-    </div>
-    <div className='row_dish_count'>
-      <button className='minus'> <span> - </span></button>
-      <span>{count}</span>
-      <button className='count_plus'> <span> + </span></button>
-    </div>
-  </div>
-</div>
+  const removeFromBasket = () => {
+    store.dispatch(actionCartChange(-1, id, name, price, photo));
+    setNewCount(newCount - 1);
+    if(store.getState().cardReducer[id].count === 0){
+      store.dispatch(actionCartRemove(id))
+  }
+  };
 
-
-const ModalBasket = ({openBasket , setOpenBasket , count , products , price}) => {
-
-  const [orderActive , setOrderActive] = useState(false)
-
-  useEffect(() => {
-    if(orderActive === true){
-      setOpenBasket(false)
-    }
-  }, [orderActive , openBasket])
-  
+  const addToBasket = () => {
+    store.dispatch(actionCartAdd(1, id, name, Number(price), photo)); // Pass price as a number
+    setNewCount(newCount + 1)
+  };
 
   return (
-    <>
-    <div className={openBasket ? "modal_basket active" : "modal_basket"} onClick={() => setOpenBasket(false)}>
-    <div className='modal_basket_content' onClick={e => e.stopPropagation()}>
-       <div className='basket_content'>
-         <div className='basket_content_h1'>
-          {count?.slice(0, -1)}
-         </div>
-         <div className='basket_content_desc'>
-          <span>Мінімальне замовлення від <b style={{backgroundColor: "inherit"}}>99 грн</b></span>
-          <span>Вартість доставлення <b style={{backgroundColor: "inherit"}}>50 грн</b></span>
-         </div>
-       </div>
-       <div className='basket_content_products'>
-          {
-            products?.map((item) => (<RowDish name={item.name} price={item.price} count={item.count} key={item.name}/>))
-          }
-       </div>
-       <div className='basket_content_textarea'>
-        <textarea placeholder='Коментар до замовлення'>
-
-        </textarea>
-       </div>
-      <div className='basket_content_bottom'>
-          <div className='basket_content_price'>
-            <span> Сума замовлення:</span>
-            <span>{price + " грн"}</span>
-          </div>
-          <div className='basket_content_btn'>
-            <button onClick={() => setOrderActive(true)}>
-              Перейти до оформлення
-            </button>
-          </div>
+    <div className='row_dish' key={id}>
+      <img src={photo} />
+      <div className='row_dish_content'>
+        <div className='row_dish_title'>
+          <span>{name}</span>
+          <span>{totalPrice} грн</span>
+        </div>
+        <div className='row_dish_count'>
+          <button onClick={removeFromBasket} className={count < 1 ? 'visibleMinus' : 'minus'}>
+            <span> - </span>
+          </button>
+          <span>{newCount}</span>
+          <button onClick={addToBasket} className='count_plus'>
+            <span> + </span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-          <OrderModal orderActive={orderActive} setOrderActive={setOrderActive} setOpenBasket={setOpenBasket} price={price} products={products}/>
+  );
+};
+
+const countPriceDelivery = (selectedSpot, orderPrice, setDeliveryPrice) => {
+  if(selectedSpot?.name === "2"){
+    setDeliveryPrice(70)
+  }else{
+    setDeliveryPrice(70)
+  }
+  if (selectedSpot?.name === "5" && orderPrice > 399) {
+    setDeliveryPrice(0);
+  } else if (selectedSpot?.name === "5" && orderPrice < 399) {
+    setDeliveryPrice(50);
+  }
+};
+
+const ModalBasket = ({openBasket , setOpenBasket , count , price , products , productsFranchise}) => {
+  const [orderActive , setOrderActive] = useState(false)
+
+  const [isAddressBarVisible, setIsAddressBarVisible] = useState(false);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [startY, setStartY] = useState(null);
+  const [currentY, setCurrentY] = useState(null);
+  const modalRef = useRef(null);
+  const contentRef = useRef(null);
+
+  const [comment , setComment] = useState('')
+
+  const selectedSpot = useSelector((state) => state.cardReducer?.spot)
+
+  const [deliveryPrice , setDeliveryPrice] = useState(70)
+
+  const [cart, setCart] = useState();
+  const [isFixed, setIsFixed] = useState(false);
+  const [showComponent, setShowComponent] = useState(true);
+
+  useEffect(() => {
+    // Check if the maximum width of the screen is greater than 800 pixels
+    const mediaQuery = window.matchMedia('(max-width: 800px)');
+
+    // Hide the component if the screen is too large
+    setShowComponent(mediaQuery.matches);
+
+    // Add a listener to the media query to update the component when the screen size changes
+    const handleMediaQueryChange = () => {
+      setShowComponent(mediaQuery.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleMediaQueryChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleMediaQueryChange);
+    };
+  }, []);
+  
+  useEffect(() => {
+    let copyObject = Object.values(products)
+    setCart(copyObject);
+    if(count ==="0 товар,"){
+      setOpenBasket(false)
+    }
+}, [products , count]);
+  
+  useEffect(() => {
+    function handleScroll() {
+      const scrollY = window.scrollY;
+      const button = document.getElementById('fixed-button');
+      if (button) {
+        if (scrollY > button.offsetTop) {
+          setIsFixed(true);
+        } else {
+          setIsFixed(false);
+        }
+      }
+    }
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    countPriceDelivery(selectedSpot, price, setDeliveryPrice);
+  }, [selectedSpot, price]);
+
+
+  useLayoutEffect(() => {
+    function handleResize() {
+      const isAddressBarVisible = window.visualViewport.height > 700;
+      setIsAddressBarVisible(isAddressBarVisible);
+    }
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const handleTouchStart = (event) => {
+    const touch = event.touches[0];
+    setStartY(touch.clientY);
+  };
+
+  const handleTouchMove = (event) => {
+    const touch = event.touches[0];
+    setCurrentY(touch.clientY);
+    if (startY && !isSwiping) {
+      setIsSwiping(true);
+    }
+    if (isSwiping) {
+      const contentHeight = contentRef.current.scrollHeight;
+      const scrollTop = contentRef.current.scrollTop;
+      const swipeDistance = touch.clientY - startY;
+      const isScrollingTop = swipeDistance > 0 && scrollTop === 0;
+      const isScrollingBottom = swipeDistance < 0 && scrollTop + contentHeight === contentRef.current.offsetHeight;
+      if (!isScrollingTop && !isScrollingBottom) {
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isSwiping) {
+      const swipeDistance = currentY - startY;
+      if (swipeDistance > 50) {
+        setOpenBasket(false);
+      }
+      setIsSwiping(false);
+    }
+    setStartY(null);
+    setCurrentY(null);
+  };
+
+  if (!openBasket) return null; 
+  
+  return (
+    <>   
+        <div className={openBasket ? "modal_basket active" : "modal_basket"}
+        style={{ transform: `translateY(${currentY ? currentY - startY : 0}px)` , backgroundColor:   currentY ? "rgba(0,0,0,0)" : [] , borderBottom: isAddressBarVisible ? "50px" : 0}} onClick={() => setOpenBasket(false)}
+        >
+        <div className='modal_basket_content' ref={modalRef} onClick={(e) => e.stopPropagation()}> 
+          <div className='basket_content' ref={contentRef}>
+            {showComponent && <div className='close_modal_button' 
+                   onTouchStart={handleTouchStart}
+                   onTouchMove={handleTouchMove}
+                   onTouchEnd={handleTouchEnd}
+                >
+                    {
+                      isSwiping ? <ArrowDropDownIcon/> : <RemoveIcon/>
+                    }
+                </div>   
+            }
+            {
+              !showComponent ? 
+                <div className="close_browser_button" onClick={() => setOpenBasket(false)}>
+                  <CloseIcon sx={{color: "white" , fontSize: 40 , backgroundColor: "inherit"}}/>
+                </div>
+              : []
+            }         
+            
+            <div className={showComponent ? "basket_content_h1mobil" :'basket_content_h1'}>
+              {count?.slice(0, -1)}
+            </div>
+            <div className='basket_content_desc'>
+              <span>Мінімальне замовлення від <b style={{backgroundColor: "inherit"}}>99 грн</b></span>
+              {selectedSpot?.name  === "2" ? (
+                <span>Вартість доставлення <b style={{backgroundColor: "inherit"}}>70 грн</b></span>
+              ) : (
+                <div className='basket_content_desc1'>
+                  <span>Вартість доставлення <b style={{backgroundColor: "inherit"}}>50 грн</b></span>
+                  <span>Безкоштовна доставка при замовленні від <b style={{backgroundColor: "inherit"}}>399 грн</b></span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className='basket_content_products'>
+              {
+                cart?.map((item) => (item.photo ? <RowDish name={item.name} price={item.price} count={item.count} key={item.name} photo={item.photo} id={item.product_id} totalPrice={item.totalPrice}/> : []))
+              }
+          </div>
+          <div className='basket_content_textarea'>
+            <textarea placeholder='Коментар до замовлення' onChange={(e) => setComment(e.target.value)}>
+
+            </textarea>
+          </div>
+          <div className='basket_content_bottom' style={{ position: isFixed ? 'fixed' : 'static', bottom: '20px' }}>
+              <div className='basket_content_price'>
+                <span> Сума замовлення:</span>
+                <span>{price + " грн"}</span>
+              </div>
+              <div className='basket_content_btn'>
+                <button onClick={() => setOrderActive(true)}>
+                  Перейти до оформлення
+                </button>
+              </div>
+          </div>
+        </div>
+      </div>
+          <OrderModal orderActive={orderActive} setOrderActive={setOrderActive} setOpenBasket={setOpenBasket} price={price} products={cart} productsFranchise={productsFranchise} deliveryPrice={deliveryPrice} comment={comment}/>
   </>
   )
 }
 
+export const ModalBasketConnect = connect(state => ({ 
+  products: state.cardReducer, 
+  productsFranchise: state.promise?.productsFranchise?.payload?.products
+}), {
+
+})(ModalBasket) 
+
 
 const Basket = ({basket}) => {
-    const [cart , setCart] = useState()
-    const totalCount = []
-    const totalPrice = []
-    const [count,setCount] = useState()
-    const [price , setPrice] = useState()
-    const [ libraries ] = useState(['places']);
+  const [cart, setCart] = useState();
 
-    const productsInTheBasket = []
+  const [count, setCount] = useState(0);
+  const [price, setPrice] = useState(0);
+ 
+  const [openBasket, setOpenBasket] = useState(false);
+  const [libraries] = useState(['places']);
 
-    const [openBasket , setOpenBasket] = useState(false)
+  useEffect(() => {
+      let copyObject = Object.values(basket)
+      setCart(copyObject);
+  }, [basket , count]);
 
-    if(cart){
-      for(let [key,value] of Object.entries(cart)){
-        if(value.price){
-          productsInTheBasket.push(value)
+
+  const calculateCartTotal = (cart) => {
+    function sumByKey(arr, key) {
+      return arr.reduce((acc, obj) => {
+        if (obj[key] !== undefined) {
+          return acc + obj[key];
         }
-      }
+        return acc;
+      }, 0);
     }
+      const totalCount = sumByKey(cart, "count");
+      const totalPrice = sumByKey(cart, "totalPrice");
 
-    useEffect(() => {
-      if(basket){
-        setCart(basket)
-      }
-    }, [basket])
-
-    const concCount = () => {
-      if(cart !== null){
-       for(let [key , value] of Object.entries(cart || {})){
-          if(value.price) totalPrice.push(value.price)
-          if(value.count) totalCount.push(value.count)
+    if (totalCount === 0) {
+      setCount("0 товар,");
+    } else {
+      switch (true) {
+        case totalCount === 1:
+            setCount("1 товар,");
+            setPrice(totalPrice);
+           
+          break;
+        case totalCount > 1 && totalCount < 5:
+            setCount(`${totalCount} товари,`);
+            setPrice(totalPrice);
+            
+          break;
+        case totalCount >= 5:
+            setCount(`${totalCount} товарів,`);
+            setPrice(totalPrice);
+          
+          break;
+        default:
+          break;
        }
-      }
     }
-    concCount()
-
-    useEffect(() => {
-      let resultCount = totalCount?.reduce((item , next) =>  item  + next, 0)
-      let resultPrice = totalPrice?.reduce((item ,next ) => item + next , 0)
-
-      if(totalCount.length == 0){
-        setCount(0 + " товар,")
-        setPrice(0)
-      }
-      if(totalCount.length == 1){
-        setCount(1 + " товар,")
-        setPrice(totalPrice[0])
-      }
-      if(totalCount.length > 1 || totalCount > 1 && resultCount < 5){
-        setCount(resultCount  + " товари,") 
-      }
-      if(resultCount > 4){
-        setCount(resultCount + " товарів,")
-      }
-      if(totalPrice.length > 1){
-        setPrice(resultPrice)
-      }
-    }, [cart])
-
-    const {isLoaded} = useJsApiLoader({
-      googleMapsApiKey: "AIzaSyD-3lAed2PzWnYQG9wHBnIKguUzfcVGw9Y",
-      componentRestrictions: {country: "ua"},
-      libraries,
-    })
+  };
   
-    if(!isLoaded){
-      return <span></span>
+  useEffect(() => {
+    if (Array.isArray(cart)) {
+      calculateCartTotal(cart);
+      console.log(cart)
+    } else {
+      console.log('Error: arr is not an array');
     }
+  }, [cart]);
   
+  useEffect(() => {
+    if (openBasket) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
+    }
+  }, [openBasket]);
+  
+  
+  const handleOpening = (event) => {
+    event.stopPropagation();
+    setOpenBasket(true);
+  };
+
+
     return (
       <>
-      <div className={price > 1 ? 'basket_container' : "basket_containerDISABLE"}>
-          <button className='btn_basket' onClick={() => setOpenBasket(true)}>
+      <div className='basket_container'>
+          <button className={count !== "0 товар,"? 'btn_basket acti' : "btn_basket"} onClick={handleOpening}>
                   <div className='btn_content'>
-                      <ShoppingCartOutlinedIcon style={{backgroundColor: "white" ,color: "inherit" , borderRadius: 5 , padding: 4}}/>
+                      <ShoppingCartOutlinedIcon style={{backgroundColor: "white", borderRadius: 5 , padding: 4 , color: 'red'}}/>
                       <span>{count}</span>
                       <span>{price + " грн"}</span>
                   </div>
@@ -433,14 +847,12 @@ const Basket = ({basket}) => {
                   Замовити
                   <KeyboardArrowRightIcon style={{color: "white" , backgroundColor: 'inherit'  , marginTop: 2}}/>
                 </div>
-          
           </button>
       </div>
-      <ModalBasket openBasket={openBasket} setOpenBasket={setOpenBasket} count={count} products={productsInTheBasket} price={price}/>
+      <ModalBasketConnect openBasket={openBasket} setOpenBasket={setOpenBasket} count={count}  price={price}/>
       </>
     )
   }
-
 
 export const BasketConnect = connect(state => ({ 
     basket: state.cardReducer, 

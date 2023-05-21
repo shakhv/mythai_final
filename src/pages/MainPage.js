@@ -7,8 +7,15 @@ import { Header, HeaderConnect } from '../components/Header'
 import {DishesConnect} from '../components/DishesCategory';
 import { BasketConnect } from '../components/Basket';
 import { useState } from 'react';
+import Particles from 'react-tsparticles';
 
-const image = ["https://mythai.com.ua/_next/image?url=https%3A%2F%2Fimg.postershop.me%2F5514%2FSlides%2F32369_1656021422.9424_big.jpeg&w=1200&q=75", "https://mythai.com.ua/_next/image?url=https%3A%2F%2Fimg.postershop.me%2F5514%2FSlides%2F32369_1656021422.9424_big.jpeg&w=1200&q=75", "https://mythai.com.ua/_next/image?url=https%3A%2F%2Fimg.postershop.me%2F5514%2FSlides%2F32369_1656021422.9424_big.jpeg&w=1200&q=75"];
+import banner1 from "../images/banner1.jpg"
+import banner2 from '../images/banner2.jpg'
+
+import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
+import { useSelector } from 'react-redux';
+
+ const image = [banner2, banner1, banner2];
 
 
 const delay = 3000;
@@ -56,30 +63,24 @@ function Slideshow() {
   );
 }
 
-const SetRestModal = ({selectRest , setSelectRest}) => {
-  return (
-    <div className={selectRest ? "selectRestModal active" : "selectRestModal"}>
-      <div className='selectRestModal_content' onClick={e => e.stopPropagation()}>
-          <h1>MyThai Суши</h1>
-          <h5>Оберіть місто:</h5>
-          <div>
-          <span>Лозова</span>
-          <span>Умань</span>
-          <span>Ізюм</span>
-          <span>Чернівці</span>
-          <span>Черкаси</span>
-          <span>Львів</span>
-          </div>
-      </div>
-    </div>
-  )
-}
 
 export const MainPage = () => {
-  const [selectRest , setSelectRest] = useState(true)
+  const selectedSpot = useSelector((state) => state.cardReducer?.spot);
+
+  function handlePhoneCall() {
+    if(selectedSpot?.name === "2"){
+      return window.location.href = 'tel:+380660558522'; // Replace the phone number with the number you want to call
+    }
+    if(selectedSpot?.name === "5"){
+      return window.location.href = 'tel:+380992308969'
+    }
+  }
 
   return (
       <div id='body'>
+            <div className='icon_phone_trigger' onClick={handlePhoneCall}>
+                        <CallOutlinedIcon />  
+            </div>
             <HeaderConnect />
             <Slideshow />
             <DishesConnect />
